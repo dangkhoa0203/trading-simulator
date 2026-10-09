@@ -4,6 +4,7 @@ both stock tickers ("AAPL") and crypto pairs ("BTC/USD") through the same endpoi
 """
 
 import time
+from datetime import datetime, timezone
 
 import requests
 from flask import current_app
@@ -12,8 +13,14 @@ CACHE_TTL_SECONDS = 60
 REQUEST_TIMEOUT_SECONDS = 5
 
 _cache = {}  # ticker -> (price: float, fetched_at: float)
-_history_cache = {}  # (ticker, days) -> (history: list, fetched_at: float)
+_history_cache = {}  # (ticker, interval, outputsize) -> (history: list, fetched_at: float)
 HISTORY_CACHE_TTL_SECONDS = 3600
+
+# Intraday intervals show recent bars rather than a calendar range — "last 120 bars of
+# 5-minute candles" rather than "5-minute candles for the last 30 days" (which would be
+# thousands of points). 120 bars is ~10 hours at 5min, ~1 day at 15min, ~2.5 days at 30min.
+INTRADAY_INTERVALS = {"5min", "15min", "30min"}
+INTRADAY_OUTPUTSIZE = 120
 
 
 def _twelvedata_symbol(ticker):
@@ -61,9 +68,20 @@ def _interval_for_range(days):
     return "1month", -(-days // 30)
 
 
-def get_history(ticker, days=30):
-    """Returns a chronological list of {"date", "close"} dicts for charting."""
-    interval, outputsize = _interval_for_range(days)
+def get_history(ticker, days=30, interval=None):
+    """Returns a chronological list of {"date", "close"} dicts for charting. `interval`
+    overrides the day-range auto-bucketing with an explicit intraday granularity (see
+    INTRADAY_INTERVALS) — the most recent INTRADAY_OUTPUTSIZE bars at that granularity,
+    regardless of `days`.
+    """
+    if interval in INTRADAY_INTERVALS:
+        outputsize = INTRADAY_OUTPUTSIZE
+    elif interval == "1day":
+        # Explicit daily override (used by get_price_on_date) — unlike the auto-bucketing
+        # below, this must never coarsen to weekly/monthly just because `days` is large.
+        outputsize = min(max(days, 1), 5000)
+    else:
+        interval, outputsize = _interval_for_range(days)
     cache_key = (ticker, interval, outputsize)
     now = time.time()
     cached = _history_cache.get(cache_key)
@@ -91,15 +109,32 @@ def get_history(ticker, days=30):
     return history
 
 
-def get_price_at_date(ticker, date_str, days=30):
-    """Historical close for a specific date — looked up server-side (not client-supplied)
-    so a "trade in the past" can't be faked with an arbitrary price. `days` must match
-    whatever range the frontend charted the date from, since longer ranges bucket into
-    weekly/monthly candles and the date strings won't line up otherwise.
+def get_price_on_date(ticker, date_str):
+    """Daily close for a specific calendar date — looked up server-side (not
+    client-supplied) so a "trade in the past" can't be faked with an arbitrary price.
+    Always daily granularity regardless of what interval any chart is currently showing, so
+    this works the same whether the date came from clicking a chart point or an exact date
+    picker. Returns (price, actual_date) — actual_date can differ from the requested one if
+    it fell on a weekend/holiday, in which case the nearest earlier trading day is used.
     """
-    history = get_history(ticker, days=days)
     target = date_str[:10]
+    target_date = datetime.strptime(target, "%Y-%m-%d").date()
+    today = datetime.now(timezone.utc).date()
+    if target_date > today:
+        raise RuntimeError("date must be in the past")
+
+    # A small buffer past the exact day count covers nearby weekends/holidays when walking
+    # back for a fallback trading day, capped at Twelve Data's max outputsize.
+    outputsize = min((today - target_date).days + 10, 5000)
+    history = get_history(ticker, days=outputsize, interval="1day")
+
     for entry in history:
         if entry["date"][:10] == target:
-            return entry["close"]
-    raise RuntimeError(f"no historical price for {ticker} on {target}")
+            return entry["close"], entry["date"][:10]
+
+    earlier = [e for e in history if e["date"][:10] <= target]
+    if earlier:
+        nearest = earlier[-1]
+        return nearest["close"], nearest["date"][:10]
+
+    raise RuntimeError(f"no historical price available near {target} for {ticker}")

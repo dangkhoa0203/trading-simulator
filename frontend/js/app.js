@@ -2,8 +2,10 @@ const state = {
   portfolios: [],
   selectedPortfolioId: null,
   tradeSide: "BUY",
+  backtestDateSide: "BUY",
   chartTicker: null,
   chartDays: 30,
+  chartInterval: null,
   chartHistory: [],
   comparePoints: [],
   backtestTrade: null,
@@ -84,16 +86,17 @@ async function dismissAlert(portfolioId, alertId) {
   }
 }
 
-async function showChart(ticker, days = state.chartDays) {
+async function showChart(ticker, days = state.chartDays, interval = null) {
   state.chartTicker = ticker;
   state.chartDays = days;
+  state.chartInterval = interval;
   state.comparePoints = [];
   state.backtestTrade = null;
-  Render.rangeSelector(days);
+  Render.rangeSelector(days, interval);
   Render.els.tickerInput.value = ticker;
 
   try {
-    const res = await Api.getHistory(ticker, days);
+    const res = await Api.getHistory(ticker, days, interval);
     const body = await res.json();
     if (res.ok) {
       state.chartHistory = body.history;
@@ -125,7 +128,7 @@ async function handleBacktestTrade(side, quantity) {
 
   const point = state.comparePoints[0];
   try {
-    const res = await Api.submitTrade(state.selectedPortfolioId, state.chartTicker, side, quantity, point.date, state.chartDays);
+    const res = await Api.submitTrade(state.selectedPortfolioId, state.chartTicker, side, quantity, point.date);
     const body = await res.json();
     if (res.ok) {
       state.backtestTrade = { index: point.index, side, quantity, price: body.transaction.price };
@@ -163,7 +166,11 @@ document.getElementById("chart-compare-clear")?.addEventListener("click", () => 
 document.getElementById("range-selector")?.addEventListener("click", (event) => {
   const button = event.target.closest(".range-option");
   if (!button || state.chartTicker === null) return;
-  showChart(state.chartTicker, Number(button.dataset.days));
+  if (button.dataset.interval) {
+    showChart(state.chartTicker, state.chartDays, button.dataset.interval);
+  } else {
+    showChart(state.chartTicker, Number(button.dataset.days));
+  }
 });
 
 const tickerInputEl = document.getElementById("chart-ticker-input");
@@ -292,6 +299,49 @@ document.getElementById("trade-side-toggle")?.addEventListener("click", (event) 
   document.querySelectorAll("#trade-side-toggle .segmented-option").forEach((el) => {
     el.classList.toggle("selected", el === button);
   });
+});
+
+const backtestDateInputEl = document.getElementById("backtest-date");
+if (backtestDateInputEl) backtestDateInputEl.max = new Date().toISOString().slice(0, 10);
+
+document.getElementById("backtest-date-side-toggle")?.addEventListener("click", (event) => {
+  const button = event.target.closest(".segmented-option");
+  if (!button) return;
+  state.backtestDateSide = button.dataset.value;
+  document.querySelectorAll("#backtest-date-side-toggle .segmented-option").forEach((el) => {
+    el.classList.toggle("selected", el === button);
+  });
+});
+
+document.getElementById("backtest-date-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (state.selectedPortfolioId === null || state.chartTicker === null) return;
+
+  const date = document.getElementById("backtest-date").value;
+  const quantity = Number(document.getElementById("backtest-date-quantity").value);
+  const statusEl = document.getElementById("backtest-date-status");
+  statusEl.textContent = "Submitting...";
+  statusEl.classList.remove("status-error");
+
+  try {
+    const res = await Api.submitTrade(state.selectedPortfolioId, state.chartTicker, state.backtestDateSide, quantity, date);
+    const body = await res.json();
+
+    if (res.ok) {
+      const dateNote = body.actual_trade_date !== date
+        ? ` — market closed that day, used ${body.actual_trade_date}`
+        : "";
+      statusEl.textContent = `${state.backtestDateSide} ${quantity} ${state.chartTicker} @ ${formatMoney(body.transaction.price)}${dateNote}`;
+      statusEl.classList.remove("status-error");
+      refreshPortfolioDetail(state.selectedPortfolioId);
+    } else {
+      statusEl.textContent = `Error: ${body.error}`;
+      statusEl.classList.add("status-error");
+    }
+  } catch (err) {
+    statusEl.textContent = `Request failed: ${err.message}`;
+    statusEl.classList.add("status-error");
+  }
 });
 
 document.getElementById("trade-form")?.addEventListener("submit", async (event) => {

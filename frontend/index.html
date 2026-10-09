@@ -120,6 +120,9 @@
         <div class="chart-header">
           <h3 id="chart-title"></h3>
           <div class="range-selector" id="range-selector">
+            <button type="button" class="range-option" data-interval="5min">5m</button>
+            <button type="button" class="range-option" data-interval="15min">15m</button>
+            <button type="button" class="range-option" data-interval="30min">30m</button>
             <button type="button" class="range-option" data-days="7">7D</button>
             <button type="button" class="range-option" data-days="30">1M</button>
             <button type="button" class="range-option" data-days="90">3M</button>
@@ -137,6 +140,20 @@
           <div id="chart-compare-body"></div>
           <button id="chart-compare-clear" type="button" class="button button-secondary">Clear</button>
         </div>
+
+        <form id="backtest-date-form" class="trade-form">
+          <h3>Backtest at an exact date</h3>
+          <div class="trade-form-row">
+            <input type="date" id="backtest-date" required>
+            <div class="segmented" id="backtest-date-side-toggle">
+              <button type="button" class="segmented-option selected" data-value="BUY">Buy</button>
+              <button type="button" class="segmented-option" data-value="SELL">Sell</button>
+            </div>
+            <input type="number" id="backtest-date-quantity" placeholder="Quantity" step="any" min="0" required>
+            <button type="submit" class="button button-secondary">Backtest</button>
+          </div>
+          <p id="backtest-date-status" class="trade-status"></p>
+        </form>
       </div>
 
       <div class="holdings-panel">

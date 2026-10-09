@@ -9,17 +9,21 @@ function parseHistoryDate(dateStr) {
 
 function formatAxisDate(dateStr, days) {
   const d = parseHistoryDate(dateStr);
+  // Intraday bars carry a time component ("YYYY-MM-DD HH:MM:SS") — a plain daily/weekly/
+  // monthly close is just "YYYY-MM-DD" (10 chars). Time is the useful axis label there.
+  if (dateStr.length > 10) return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
   if (days > 180) return d.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function formatTooltipDate(dateStr) {
-  return parseHistoryDate(dateStr).toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const d = parseHistoryDate(dateStr);
+  const opts = { weekday: "short", month: "short", day: "numeric", year: "numeric" };
+  if (dateStr.length > 10) {
+    opts.hour = "2-digit";
+    opts.minute = "2-digit";
+  }
+  return d.toLocaleDateString(undefined, opts);
 }
 
 const Render = {
@@ -545,9 +549,12 @@ const Render = {
     }
   },
 
-  rangeSelector(selectedDays) {
+  rangeSelector(selectedDays, selectedInterval) {
     this.els.rangeSelector.querySelectorAll(".range-option").forEach((btn) => {
-      btn.classList.toggle("selected", Number(btn.dataset.days) === selectedDays);
+      const selected = selectedInterval
+        ? btn.dataset.interval === selectedInterval
+        : !btn.dataset.interval && Number(btn.dataset.days) === selectedDays;
+      btn.classList.toggle("selected", selected);
     });
   },
 

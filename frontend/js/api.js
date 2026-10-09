@@ -73,20 +73,18 @@ const Api = {
     return this.request(`/api/portfolios/${id}`, { method: "DELETE" });
   },
 
-  submitTrade(portfolioId, ticker, side, quantity, date = null, days = null) {
+  submitTrade(portfolioId, ticker, side, quantity, date = null) {
     const body = { ticker, side, quantity };
-    if (date) {
-      body.date = date;
-      body.days = days;
-    }
+    if (date) body.date = date;
     return this.request(`/api/portfolios/${portfolioId}/trades`, {
       method: "POST",
       body: JSON.stringify(body),
     });
   },
 
-  getHistory(ticker, days = 30) {
-    return this.request(`/api/market/history/${encodeURIComponent(ticker)}?days=${days}`);
+  getHistory(ticker, days = 30, interval = null) {
+    const params = interval ? `interval=${interval}` : `days=${days}`;
+    return this.request(`/api/market/history/${encodeURIComponent(ticker)}?${params}`);
   },
 
   getLatestTrends() {

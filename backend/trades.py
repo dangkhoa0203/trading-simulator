@@ -5,7 +5,7 @@ from flask import Blueprint, g, jsonify, request
 
 from decorators import login_required
 from extensions import db
-from market import get_price, get_price_at_date
+from market import get_price, get_price_on_date
 from models import Holding, Portfolio, Transaction
 
 bp = Blueprint("trades", __name__, url_prefix="/api/portfolios")
@@ -38,11 +38,14 @@ def create_trade(portfolio_id):
 
     price_stale = False
     executed_at = None
+    actual_trade_date = None
     try:
         if trade_date:
-            days = int(data.get("days") or 365)
-            price = get_price_at_date(ticker, trade_date, days=days)
-            executed_at = datetime.strptime(trade_date[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            # Always a daily close, regardless of what interval any chart happened to be
+            # showing — see get_price_on_date. actual_trade_date can differ from the
+            # requested one if it fell on a weekend/holiday (nearest prior trading day used).
+            price, actual_trade_date = get_price_on_date(ticker, trade_date)
+            executed_at = datetime.strptime(actual_trade_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
         else:
             price, price_stale = get_price(ticker)
     except RuntimeError as exc:
@@ -83,4 +86,5 @@ def create_trade(portfolio_id):
         transaction=transaction.to_dict(),
         cash_balance=float(portfolio.cash_balance),
         price_stale=price_stale,
+        actual_trade_date=actual_trade_date,
     ), 201

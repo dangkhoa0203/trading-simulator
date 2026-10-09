@@ -443,6 +443,7 @@ input, select {
 .trade-form-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .trade-form-row input[type="text"] { flex: 1; min-width: 160px; }
 .trade-form-row input[type="number"] { width: 120px; }
+.trade-form-row input[type="date"] { width: 160px; }
 
 .segmented { display: flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
 

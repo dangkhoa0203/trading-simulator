@@ -115,7 +115,7 @@ def test_rejects_non_positive_quantity(client, auth_headers, portfolio):
 def test_backtest_trade_uses_historical_price_not_a_client_supplied_one(client, auth_headers, portfolio, monkeypatch):
     # The whole point of backtesting is the price is looked up server-side for the given
     # date — a malicious client passing its own "price" field must have no effect.
-    monkeypatch.setattr(trades, "get_price_at_date", lambda ticker, date, days=30: 42.0)
+    monkeypatch.setattr(trades, "get_price_on_date", lambda ticker, date: (42.0, date[:10]))
 
     res = _trade(
         client, auth_headers, portfolio.id,
@@ -124,6 +124,22 @@ def test_backtest_trade_uses_historical_price_not_a_client_supplied_one(client, 
 
     assert res.status_code == 201
     assert res.get_json()["transaction"]["price"] == 42.0
+
+
+def test_backtest_trade_reports_the_actual_date_used(client, auth_headers, portfolio, monkeypatch):
+    # The requested date can fall on a weekend/holiday — get_price_on_date falls back to the
+    # nearest prior trading day, and the response should say so rather than lying about it.
+    monkeypatch.setattr(trades, "get_price_on_date", lambda ticker, date: (42.0, "2024-01-12"))
+
+    res = _trade(
+        client, auth_headers, portfolio.id,
+        ticker="AAPL", side="BUY", quantity=1, date="2024-01-14",  # a Sunday
+    )
+
+    assert res.status_code == 201
+    body = res.get_json()
+    assert body["actual_trade_date"] == "2024-01-12"
+    assert body["transaction"]["executed_at"].startswith("2024-01-12")
 
 
 def test_trade_requires_authentication(client, portfolio):

@@ -1,7 +1,7 @@
 """Apply data/schema.sql to the PostgreSQL database at DATABASE_URL.
 
-Run once against a freshly provisioned RDS instance:
-    DATABASE_URL=postgresql://user:pass@<rds-endpoint>:5432/tradenow python migrate.py
+Run once against a freshly provisioned database (Supabase, Neon, RDS, whatever):
+    DATABASE_URL=postgresql://user:pass@host:5432/dbname python migrate.py
 """
 
 import os
@@ -14,8 +14,8 @@ import psycopg2
 def main():
     database_url = os.environ.get("DATABASE_URL")
     if not database_url or database_url.startswith("sqlite"):
-        print("DATABASE_URL must point at a PostgreSQL RDS instance, e.g.:")
-        print("  postgresql://user:pass@<rds-endpoint>:5432/tradenow")
+        print("DATABASE_URL must point at a PostgreSQL database, e.g.:")
+        print("  postgresql://user:pass@host:5432/dbname")
         sys.exit(1)
 
     schema_path = Path(__file__).resolve().parent.parent / "data" / "schema.sql"

@@ -1,5 +1,7 @@
 # Trading Simulator
 
+[![CI](https://github.com/dangkhoa0203/trading-simulator/actions/workflows/ci.yml/badge.svg)](https://github.com/dangkhoa0203/trading-simulator/actions/workflows/ci.yml)
+
 A cloud-native portfolio trading simulator: track simulated portfolios, trade against live
 market prices, backtest a trade against a historical date, get alerted when a portfolio swings,
 and export a PDF statement.

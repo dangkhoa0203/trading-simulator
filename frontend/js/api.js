@@ -1,4 +1,4 @@
-const API_BASE = "https://zngz9ceug0.execute-api.us-east-1.amazonaws.com/prod";
+const API_BASE = "https://trading-simulator-cern.onrender.com";
 const TOKEN_STORAGE_KEY = "tradenow_token";
 
 const Api = {

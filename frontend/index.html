@@ -221,9 +221,12 @@
         </table>
       </div>
 
-      <form id="watchlist-form" class="trade-form">
+      <form id="watchlist-form" class="trade-form" autocomplete="off">
         <div class="trade-form-row">
-          <input type="text" id="watchlist-ticker" placeholder="Ticker (AAPL, BTC-USD)" required>
+          <div class="combobox" id="watchlist-ticker-combobox">
+            <input type="text" id="watchlist-ticker" placeholder="Search or pick a ticker..." autocomplete="off" required>
+            <div id="watchlist-ticker-dropdown" class="combobox-dropdown" hidden></div>
+          </div>
           <select id="watchlist-direction">
             <option value="">No alert</option>
             <option value="above">Alert when above</option>

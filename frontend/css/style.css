@@ -445,6 +445,7 @@ input, select {
 .trade-form-row input[type="text"] { flex: 1; min-width: 160px; }
 .trade-form-row input[type="number"] { width: 120px; }
 .trade-form-row input[type="date"] { width: 160px; }
+.trade-form-row select { width: 170px; flex-shrink: 0; }
 
 .segmented { display: flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
 

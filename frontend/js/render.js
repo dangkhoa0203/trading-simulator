@@ -558,10 +558,9 @@ const Render = {
     });
   },
 
-  tickerDropdown(query, onSelect) {
-    const dropdown = this.els.tickerDropdown;
+  tickerDropdown(inputEl, dropdown, onSelect) {
     dropdown.textContent = "";
-    const q = query.trim().toLowerCase();
+    const q = inputEl.value.trim().toLowerCase();
 
     let anyMatch = false;
     for (const group of TICKER_CATALOG) {
@@ -579,7 +578,7 @@ const Render = {
       header.addEventListener("click", (event) => {
         event.stopPropagation();
         group.expanded = !group.expanded;
-        this.tickerDropdown(this.els.tickerInput.value, onSelect);
+        this.tickerDropdown(inputEl, dropdown, onSelect);
       });
       dropdown.appendChild(header);
 
@@ -607,15 +606,15 @@ const Render = {
     if (q && !anyMatch) {
       const empty = document.createElement("div");
       empty.className = "combobox-empty";
-      empty.textContent = `No matches — press "View chart" to look up "${query}" anyway.`;
+      empty.textContent = `No matches — "${inputEl.value.trim()}" can still be used directly.`;
       dropdown.appendChild(empty);
     }
 
     dropdown.hidden = false;
   },
 
-  hideTickerDropdown() {
-    this.els.tickerDropdown.hidden = true;
+  hideTickerDropdown(dropdown) {
+    dropdown.hidden = true;
   },
 
   showEmptyPanel() {

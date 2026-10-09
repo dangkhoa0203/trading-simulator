@@ -174,26 +174,47 @@ document.getElementById("range-selector")?.addEventListener("click", (event) => 
 });
 
 const tickerInputEl = document.getElementById("chart-ticker-input");
+const tickerDropdownEl = document.getElementById("ticker-dropdown");
 const tickerComboboxEl = document.getElementById("ticker-combobox");
 
-tickerInputEl?.addEventListener("focus", () => Render.tickerDropdown(tickerInputEl.value, chooseTicker));
-tickerInputEl?.addEventListener("input", () => Render.tickerDropdown(tickerInputEl.value, chooseTicker));
+tickerInputEl?.addEventListener("focus", () => Render.tickerDropdown(tickerInputEl, tickerDropdownEl, chooseTicker));
+tickerInputEl?.addEventListener("input", () => Render.tickerDropdown(tickerInputEl, tickerDropdownEl, chooseTicker));
 
 document.addEventListener("click", (event) => {
-  if (tickerComboboxEl && !tickerComboboxEl.contains(event.target)) Render.hideTickerDropdown();
+  if (tickerComboboxEl && !tickerComboboxEl.contains(event.target)) Render.hideTickerDropdown(tickerDropdownEl);
 });
 
 function chooseTicker(ticker) {
   tickerInputEl.value = ticker;
-  Render.hideTickerDropdown();
+  Render.hideTickerDropdown(tickerDropdownEl);
   showChart(ticker, state.chartDays);
 }
 
 document.getElementById("chart-ticker-form")?.addEventListener("submit", (event) => {
   event.preventDefault();
-  Render.hideTickerDropdown();
+  Render.hideTickerDropdown(tickerDropdownEl);
   if (tickerInputEl.value.trim()) showChart(tickerInputEl.value.trim(), state.chartDays);
 });
+
+const watchlistTickerInputEl = document.getElementById("watchlist-ticker");
+const watchlistTickerDropdownEl = document.getElementById("watchlist-ticker-dropdown");
+const watchlistTickerComboboxEl = document.getElementById("watchlist-ticker-combobox");
+
+watchlistTickerInputEl?.addEventListener("focus", () =>
+  Render.tickerDropdown(watchlistTickerInputEl, watchlistTickerDropdownEl, chooseWatchlistTicker));
+watchlistTickerInputEl?.addEventListener("input", () =>
+  Render.tickerDropdown(watchlistTickerInputEl, watchlistTickerDropdownEl, chooseWatchlistTicker));
+
+document.addEventListener("click", (event) => {
+  if (watchlistTickerComboboxEl && !watchlistTickerComboboxEl.contains(event.target)) {
+    Render.hideTickerDropdown(watchlistTickerDropdownEl);
+  }
+});
+
+function chooseWatchlistTicker(ticker) {
+  watchlistTickerInputEl.value = ticker;
+  Render.hideTickerDropdown(watchlistTickerDropdownEl);
+}
 
 document.getElementById("create-portfolio-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();

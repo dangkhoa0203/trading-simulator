@@ -1,0 +1,25 @@
+name: Compute market trends
+
+# Replaces an S3 event → Lambda → EMR/Spark cluster on AWS: fetches historical prices and
+# computes moving averages directly into Postgres on a schedule instead.
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  compute:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Run compute_trends.py
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          MARKET_API_KEY: ${{ secrets.MARKET_API_KEY }}
+        run: python compute_trends.py

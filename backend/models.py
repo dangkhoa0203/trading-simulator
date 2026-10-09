@@ -85,6 +85,34 @@ class Transaction(db.Model):
         }
 
 
+class MarketTrend(db.Model):
+    """Daily close + moving averages per symbol, computed by compute_trends.py on a
+    schedule (was an EMR/Spark job writing to S3; folded into a plain script writing
+    straight into Postgres once EMR was no longer available)."""
+
+    __tablename__ = "market_trends"
+
+    id = db.Column(db.Integer, primary_key=True)
+    symbol = db.Column(db.String(16), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    close = db.Column(db.Numeric(18, 6), nullable=False)
+    ma_7d = db.Column(db.Numeric(18, 6))
+    ma_30d = db.Column(db.Numeric(18, 6))
+    trend = db.Column(db.String(4))
+
+    __table_args__ = (db.UniqueConstraint("symbol", "date"),)
+
+    def to_dict(self):
+        return {
+            "symbol": self.symbol,
+            "date": self.date.isoformat() if self.date else None,
+            "close": float(self.close),
+            "ma_7d": float(self.ma_7d) if self.ma_7d is not None else None,
+            "ma_30d": float(self.ma_30d) if self.ma_30d is not None else None,
+            "trend": self.trend,
+        }
+
+
 class Alert(db.Model):
     __tablename__ = "alerts"
 

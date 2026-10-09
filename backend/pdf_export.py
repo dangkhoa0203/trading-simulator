@@ -1,23 +1,19 @@
-"""Stateless PDF-rendering microservice for portfolio statements.
+"""Portfolio PDF statement rendering.
 
-Deliberately doesn't touch RDS or Auth0 itself — the main backend (already logged-in-user
-aware) fetches the portfolio/holdings/transactions it already has access to and POSTs that
-data here to be rendered. Keeps this service a pure renderer: no DB credentials, no auth
-logic duplicated, easy to reason about and scale independently of the main app.
+Was a separate stateless microservice (ECS/Fargate, called over HTTP) when this ran on AWS —
+folded in-process here since there's no longer an orchestrator making that separation pay for
+itself. Same reportlab output, just called as a function instead of a POST.
 """
 
 import io
 from datetime import datetime, timezone
 
-from flask import Flask, jsonify, request, send_file
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-
-app = Flask(__name__)
 
 # Terminal statement style — dark ink on white, amber accent rules, monospace figures.
 # Mirrors the "Terminal" direction from the app's own theme (frontend/css/style.css).
@@ -43,7 +39,6 @@ def _money(value):
 
 
 def _section_label(text):
-    # Uppercase caption with an amber rule underneath, matching the on-screen section-label.
     table = Table([[Paragraph(text.upper(), STYLES["section"])]], colWidths=[6.4 * inch])
     table.setStyle(TableStyle([
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
@@ -182,23 +177,3 @@ def build_pdf(data):
     doc.build(story)
     buffer.seek(0)
     return buffer
-
-
-@app.get("/health")
-def health():
-    return jsonify(status="ok", service="tradenow-pdf-service")
-
-
-@app.post("/generate")
-def generate():
-    data = request.get_json(silent=True) or {}
-    if "portfolio" not in data:
-        return jsonify(error="portfolio is required"), 400
-
-    pdf_buffer = build_pdf(data)
-    filename = f"{data['portfolio']['name'].replace(' ', '_')}_statement.pdf"
-    return send_file(pdf_buffer, mimetype="application/pdf", as_attachment=True, download_name=filename)
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)

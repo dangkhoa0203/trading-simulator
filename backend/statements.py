@@ -1,18 +1,16 @@
 """Portfolio PDF statement export.
 
-Fetches the portfolio data the already-authenticated user has access to, POSTs it to the
-ECS-hosted pdf-service (a stateless renderer with no DB/auth access of its own — see
-pdf-service/app.py), and streams the resulting PDF bytes straight back to the browser. The
-browser never talks to the PDF service directly.
+Fetches the portfolio data the already-authenticated user has access to and renders it
+in-process via pdf_export.build_pdf (reportlab) — previously POSTed to a separate ECS-hosted
+microservice; folded in-process since there's no orchestrator making that split pay for itself.
 """
 
-import requests
-from flask import Blueprint, current_app, g, jsonify, request, send_file
-from io import BytesIO
+from flask import Blueprint, g, jsonify, send_file
 
 from decorators import login_required
 from market import get_price
 from models import Portfolio, Transaction
+from pdf_export import build_pdf
 
 bp = Blueprint("statements", __name__, url_prefix="/api/portfolios")
 
@@ -65,18 +63,10 @@ def statement(portfolio_id):
         "transactions": transactions,
     }
 
-    try:
-        response = requests.post(
-            f"{current_app.config['PDF_SERVICE_URL']}/generate",
-            json=payload,
-            timeout=15,
-        )
-        response.raise_for_status()
-    except requests.RequestException as exc:
-        return jsonify(error=f"PDF service unavailable: {exc}"), 502
+    pdf_buffer = build_pdf(payload)
 
     return send_file(
-        BytesIO(response.content),
+        pdf_buffer,
         mimetype="application/pdf",
         as_attachment=True,
         download_name=f"{portfolio.name.replace(' ', '_')}_statement.pdf",

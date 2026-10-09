@@ -39,6 +39,17 @@ CREATE TABLE transactions (
     executed_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE market_trends (
+    id              SERIAL PRIMARY KEY,
+    symbol          VARCHAR(16) NOT NULL,
+    date            DATE NOT NULL,
+    close           NUMERIC(18,6) NOT NULL,
+    ma_7d           NUMERIC(18,6),
+    ma_30d          NUMERIC(18,6),
+    trend           VARCHAR(4),
+    UNIQUE (symbol, date)
+);
+
 CREATE TABLE alerts (
     id              SERIAL PRIMARY KEY,
     portfolio_id    INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,

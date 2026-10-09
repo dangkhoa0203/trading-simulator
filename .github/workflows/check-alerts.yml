@@ -1,0 +1,17 @@
+name: Check portfolio alerts
+
+# Replaces an EventBridge schedule → Lambda on AWS: hits the backend's internal endpoint
+# every 15 minutes so portfolios that have moved ±5% from baseline get an alert.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /internal/check-alerts
+        run: |
+          curl -sf -X POST "${{ secrets.BACKEND_URL }}/internal/check-alerts" \
+            -H "X-Internal-Secret: ${{ secrets.INTERNAL_TASK_SECRET }}"

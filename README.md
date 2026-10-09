@@ -6,7 +6,8 @@ and export a PDF statement.
 
 ![Trading Simulator landing page](doc_images/screenshot.png)
 
-**[Live app](#)** — sign up and try it; it's simulated money, no real trades.
+**[Live app](https://dangkhoa0203.github.io/trading-simulator/)** — sign up and try it; it's
+simulated money, no real trades.
 
 ## Features
 

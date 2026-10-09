@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TradeNow</title>
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem("tradenow_theme");
+        var theme = saved || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.dataset.theme = theme;
+      } catch (err) { /* localStorage unavailable — falls back to the light default */ }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">TradeNow</div>
+    <div class="topbar-right">
+      <div id="auth-area"></div>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle dark mode"></button>
+    </div>
+  </header>
+
+  <section id="landing" class="landing">
+    <div class="hero">
+      <h1>Trade smarter, risk nothing.</h1>
+      <p>Simulate portfolios against live market prices, track live valuation, and manage
+        buy/sell trades — all in one dashboard.</p>
+      <a id="landing-login" class="button button-primary button-lg" href="#">Log in to get started</a>
+      <p class="auth-switch">New here? <a id="show-register" href="#">Create an account</a></p>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <h3>Live pricing</h3>
+        <p>Real-time stock and crypto quotes pulled straight from the market on every view.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Simulated trading</h3>
+        <p>Buy and sell against real prices with zero financial risk, backed by virtual cash.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Portfolio tracking</h3>
+        <p>Live valuation across every holding, recalculated the moment you trade.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="register" class="landing" hidden>
+    <div class="hero">
+      <h1>Create your account</h1>
+      <p>Registration goes straight to Auth0 — TradeNow never sees or stores your password.</p>
+      <form id="register-form" class="register-form">
+        <label for="register-display-name">Display name</label>
+        <input type="text" id="register-display-name" placeholder="Ada Lovelace" required>
+
+        <label for="register-email">Email</label>
+        <input type="email" id="register-email" placeholder="you@example.com" required>
+
+        <label for="register-password">Password</label>
+        <input type="password" id="register-password" placeholder="At least 8 characters" required minlength="8">
+
+        <label for="register-confirm">Confirm password</label>
+        <input type="password" id="register-confirm" placeholder="Re-enter your password" required minlength="8">
+
+        <button type="submit" class="button button-primary button-lg">Create account</button>
+        <p id="register-status" class="trade-status"></p>
+      </form>
+      <p class="auth-switch">Already have an account? <a id="show-login" href="#">Log in</a></p>
+    </div>
+  </section>
+
+  <main id="app" hidden>
+    <div class="app-layout">
+    <aside class="sidebar">
+      <h2>Portfolios</h2>
+      <ul id="portfolio-list" class="portfolio-list"></ul>
+      <p id="portfolio-list-empty" class="empty-state" hidden>No portfolios yet.</p>
+      <form id="create-portfolio-form" class="inline-form">
+        <input type="text" id="new-portfolio-name" placeholder="Portfolio name" required>
+        <button type="submit" class="button button-secondary">+ Create</button>
+      </form>
+      <p id="create-portfolio-status" class="trade-status"></p>
+    </aside>
+
+    <section id="detail-panel" class="detail-panel" hidden>
+      <div class="detail-header">
+        <h2 id="detail-name"></h2>
+        <button id="export-pdf-button" type="button" class="button button-secondary">Export PDF</button>
+      </div>
+      <p id="export-pdf-status" class="trade-status"></p>
+
+      <div id="alerts-list" class="alerts-list" hidden></div>
+
+      <div class="stat-row">
+        <div class="stat-card">
+          <span class="stat-label">Cash balance</span>
+          <span id="detail-cash" class="stat-value"></span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Total value</span>
+          <span id="detail-total" class="stat-value"></span>
+        </div>
+      </div>
+
+      <form id="chart-symbol-form" class="inline-form chart-symbol-form" autocomplete="off">
+        <div class="combobox" id="symbol-combobox">
+          <input type="text" id="chart-symbol-input" placeholder="Search or pick a symbol..." autocomplete="off">
+          <div id="symbol-dropdown" class="combobox-dropdown" hidden></div>
+        </div>
+        <button type="submit" class="button button-secondary">View chart</button>
+      </form>
+
+      <div id="chart-panel" class="chart-panel" hidden>
+        <div class="chart-header">
+          <h3 id="chart-title"></h3>
+          <div class="range-selector" id="range-selector">
+            <button type="button" class="range-option" data-days="7">7D</button>
+            <button type="button" class="range-option" data-days="30">1M</button>
+            <button type="button" class="range-option" data-days="90">3M</button>
+            <button type="button" class="range-option" data-days="180">6M</button>
+            <button type="button" class="range-option" data-days="365">1Y</button>
+          </div>
+        </div>
+        <span id="chart-meta" class="chart-meta"></span>
+        <p class="chart-hint">Click a point to trade at that historical price, then click another to check win/loss.</p>
+        <div class="chart-wrap">
+          <svg id="price-chart" class="price-chart" viewBox="0 0 600 220" preserveAspectRatio="none"></svg>
+          <div id="chart-tooltip" class="chart-tooltip" hidden></div>
+        </div>
+        <div id="chart-compare" class="chart-compare" hidden>
+          <div id="chart-compare-body"></div>
+          <button id="chart-compare-clear" type="button" class="button button-secondary">Clear</button>
+        </div>
+      </div>
+
+      <div class="holdings-panel">
+        <div class="table-scroll">
+          <table class="holdings-table">
+            <thead>
+              <tr><th>Ticker</th><th>Qty</th><th>Avg cost</th><th>Price</th><th>Value</th></tr>
+            </thead>
+            <tbody id="holdings-body"></tbody>
+          </table>
+        </div>
+        <p id="holdings-empty" class="empty-state" hidden>No holdings yet — place a trade below.</p>
+
+        <form id="trade-form" class="trade-form">
+          <h3>New trade</h3>
+          <div class="trade-form-row">
+            <input type="text" id="trade-symbol" placeholder="Ticker (AAPL, BTC-USD)" required>
+            <div class="segmented" id="trade-side-toggle">
+              <button type="button" class="segmented-option selected" data-value="BUY">Buy</button>
+              <button type="button" class="segmented-option" data-value="SELL">Sell</button>
+            </div>
+            <input type="number" id="trade-quantity" placeholder="Quantity" step="any" min="0" required>
+            <button type="submit" class="button button-primary">Submit</button>
+          </div>
+          <p id="trade-status" class="trade-status"></p>
+        </form>
+      </div>
+    </section>
+
+    <section id="empty-panel" class="empty-panel">
+      <p>Select a portfolio, or create a new one to get started.</p>
+    </section>
+    </div>
+
+    <section id="trends-panel" class="trends-panel">
+      <h2>Market Trends</h2>
+      <p id="trends-status" class="empty-state"></p>
+
+      <div class="table-scroll">
+        <table id="trends-table" class="holdings-table" hidden>
+          <thead>
+            <tr><th>Ticker</th><th>Close</th><th>7D MA</th><th>30D MA</th><th>Trend</th></tr>
+          </thead>
+          <tbody id="trends-body"></tbody>
+        </table>
+      </div>
+
+      <svg id="trends-chart" class="price-chart trends-chart" viewBox="0 0 600 180" preserveAspectRatio="none" hidden></svg>
+    </section>
+  </main>
+
+  <script src="js/symbol-catalog.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

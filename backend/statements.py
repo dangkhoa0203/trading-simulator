@@ -33,12 +33,12 @@ def statement(portfolio_id):
     total_value = float(portfolio.cash_balance)
     for holding in portfolio.holdings:
         entry = {
-            "symbol": holding.symbol,
+            "ticker": holding.ticker,
             "quantity": float(holding.quantity),
             "avg_cost": float(holding.avg_cost),
         }
         try:
-            price, _stale = get_price(holding.symbol)
+            price, _stale = get_price(holding.ticker)
             entry["current_price"] = price
             entry["market_value"] = price * float(holding.quantity)
             total_value += entry["market_value"]

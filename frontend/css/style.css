@@ -387,9 +387,9 @@ input, select {
 .compare-trade-form input { width: 100px; }
 .compare-days { font-size: 12px; color: var(--ink-soft); }
 
-/* Symbol combobox */
+/* Ticker combobox */
 
-.chart-symbol-form { margin: 0; position: relative; }
+.chart-ticker-form { margin: 0; position: relative; }
 
 .combobox { position: relative; flex: 1; }
 .combobox input { width: 100%; }
@@ -433,7 +433,7 @@ input, select {
 }
 
 .combobox-item:hover { background: var(--accent-soft); }
-.combobox-item .item-symbol { font-weight: 600; }
+.combobox-item .item-ticker { font-weight: 600; }
 .combobox-item .item-name { color: var(--ink-soft); font-size: 12px; }
 .combobox-empty { padding: 12px; font-size: 13px; color: var(--ink-soft); font-style: italic; }
 

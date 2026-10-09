@@ -73,8 +73,8 @@ const Api = {
     return this.request(`/api/portfolios/${id}`, { method: "DELETE" });
   },
 
-  submitTrade(portfolioId, symbol, side, quantity, date = null, days = null) {
-    const body = { symbol, side, quantity };
+  submitTrade(portfolioId, ticker, side, quantity, date = null, days = null) {
+    const body = { ticker, side, quantity };
     if (date) {
       body.date = date;
       body.days = days;
@@ -85,8 +85,8 @@ const Api = {
     });
   },
 
-  getHistory(symbol, days = 30) {
-    return this.request(`/api/market/history/${encodeURIComponent(symbol)}?days=${days}`);
+  getHistory(ticker, days = 30) {
+    return this.request(`/api/market/history/${encodeURIComponent(ticker)}?days=${days}`);
   },
 
   getLatestTrends() {
@@ -103,5 +103,22 @@ const Api = {
 
   getStatementPdf(portfolioId) {
     return this.request(`/api/portfolios/${portfolioId}/statement.pdf`);
+  },
+
+  getWatchlist() {
+    return this.request("/api/watchlist");
+  },
+
+  addWatchlistItem(ticker, alertDirection = null, targetPrice = null) {
+    const body = { ticker };
+    if (alertDirection) {
+      body.alert_direction = alertDirection;
+      body.target_price = targetPrice;
+    }
+    return this.request("/api/watchlist", { method: "POST", body: JSON.stringify(body) });
+  },
+
+  deleteWatchlistItem(id) {
+    return this.request(`/api/watchlist/${id}`, { method: "DELETE" });
   },
 };

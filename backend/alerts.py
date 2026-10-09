@@ -9,12 +9,14 @@ schedule, and this endpoint does the actual work, guarded by a shared secret sin
 a user-facing route.
 """
 
+from datetime import datetime, timezone
+
 from flask import Blueprint, current_app, g, jsonify, request
 
 from decorators import login_required
 from extensions import db
 from market import get_price
-from models import Alert, Portfolio
+from models import Alert, Portfolio, WatchlistItem
 
 bp = Blueprint("alerts", __name__)
 
@@ -26,11 +28,32 @@ def _portfolio_total_value(portfolio):
     total = float(portfolio.cash_balance)
     for holding in portfolio.holdings:
         try:
-            price, _stale = get_price(holding.symbol)
+            price, _stale = get_price(holding.ticker)
             total += price * float(holding.quantity)
         except RuntimeError:
             continue
     return total
+
+
+def _check_watchlist_alerts():
+    triggered = []
+    pending = WatchlistItem.query.filter(
+        WatchlistItem.alert_direction.isnot(None), WatchlistItem.triggered_at.is_(None)
+    ).all()
+    for item in pending:
+        try:
+            price, _stale = get_price(item.ticker)
+        except RuntimeError:
+            continue
+
+        target = float(item.target_price)
+        crossed = (item.alert_direction == "above" and price >= target) or (
+            item.alert_direction == "below" and price <= target
+        )
+        if crossed:
+            item.triggered_at = datetime.now(timezone.utc)
+            triggered.append(item.id)
+    return triggered
 
 
 @bp.post("/internal/check-alerts")
@@ -60,8 +83,15 @@ def check_alerts():
             db.session.add(alert)
             created.append(portfolio.id)
 
+    watchlist_triggered = _check_watchlist_alerts()
+
     db.session.commit()
-    return jsonify(checked=Portfolio.query.count(), alerts_created=len(created), portfolio_ids=created)
+    return jsonify(
+        checked=Portfolio.query.count(),
+        alerts_created=len(created),
+        portfolio_ids=created,
+        watchlist_alerts_triggered=watchlist_triggered,
+    )
 
 
 def _get_owned_portfolio(portfolio_id):

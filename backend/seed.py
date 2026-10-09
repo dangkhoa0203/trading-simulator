@@ -35,10 +35,10 @@ def main():
             db.session.add(portfolio)
             db.session.commit()
 
-        for symbol, quantity, avg_cost in SEED_HOLDINGS:
-            holding = Holding.query.filter_by(portfolio_id=portfolio.id, symbol=symbol).first()
+        for ticker, quantity, avg_cost in SEED_HOLDINGS:
+            holding = Holding.query.filter_by(portfolio_id=portfolio.id, ticker=ticker).first()
             if holding is None:
-                db.session.add(Holding(portfolio_id=portfolio.id, symbol=symbol, quantity=quantity, avg_cost=avg_cost))
+                db.session.add(Holding(portfolio_id=portfolio.id, ticker=ticker, quantity=quantity, avg_cost=avg_cost))
         db.session.commit()
 
         print(f"Seeded user id={user.id} ({user.email}), portfolio id={portfolio.id} with {len(SEED_HOLDINGS)} holdings")

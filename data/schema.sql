@@ -22,17 +22,17 @@ CREATE TABLE portfolios (
 CREATE TABLE holdings (
     id              SERIAL PRIMARY KEY,
     portfolio_id    INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
-    symbol          VARCHAR(16) NOT NULL,
+    ticker          VARCHAR(16) NOT NULL,
     quantity        NUMERIC(18,6) NOT NULL DEFAULT 0,
     avg_cost        NUMERIC(18,6) NOT NULL DEFAULT 0,
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (portfolio_id, symbol)
+    UNIQUE (portfolio_id, ticker)
 );
 
 CREATE TABLE transactions (
     id              SERIAL PRIMARY KEY,
     portfolio_id    INTEGER NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
-    symbol          VARCHAR(16) NOT NULL,
+    ticker          VARCHAR(16) NOT NULL,
     side            VARCHAR(4) NOT NULL CHECK (side IN ('BUY', 'SELL')),
     quantity        NUMERIC(18,6) NOT NULL CHECK (quantity > 0),
     price            NUMERIC(18,6) NOT NULL CHECK (price > 0),
@@ -41,13 +41,24 @@ CREATE TABLE transactions (
 
 CREATE TABLE market_trends (
     id              SERIAL PRIMARY KEY,
-    symbol          VARCHAR(16) NOT NULL,
+    ticker          VARCHAR(16) NOT NULL,
     date            DATE NOT NULL,
     close           NUMERIC(18,6) NOT NULL,
     ma_7d           NUMERIC(18,6),
     ma_30d          NUMERIC(18,6),
     trend           VARCHAR(4),
-    UNIQUE (symbol, date)
+    UNIQUE (ticker, date)
+);
+
+CREATE TABLE watchlist_items (
+    id              SERIAL PRIMARY KEY,
+    user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ticker          VARCHAR(16) NOT NULL,
+    alert_direction VARCHAR(5) CHECK (alert_direction IN ('above', 'below')),
+    target_price    NUMERIC(18,6),
+    triggered_at    TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (user_id, ticker)
 );
 
 CREATE TABLE alerts (

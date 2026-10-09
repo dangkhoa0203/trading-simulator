@@ -47,13 +47,17 @@ const Render = {
     chartCompare: document.getElementById("chart-compare"),
     chartCompareBody: document.getElementById("chart-compare-body"),
     rangeSelector: document.getElementById("range-selector"),
-    symbolInput: document.getElementById("chart-symbol-input"),
-    symbolDropdown: document.getElementById("symbol-dropdown"),
+    tickerInput: document.getElementById("chart-ticker-input"),
+    tickerDropdown: document.getElementById("ticker-dropdown"),
     trendsStatus: document.getElementById("trends-status"),
     trendsTable: document.getElementById("trends-table"),
     trendsBody: document.getElementById("trends-body"),
     trendsChart: document.getElementById("trends-chart"),
     alertsList: document.getElementById("alerts-list"),
+    watchlistTable: document.getElementById("watchlist-table"),
+    watchlistBody: document.getElementById("watchlist-body"),
+    watchlistEmpty: document.getElementById("watchlist-empty"),
+    watchlistStatus: document.getElementById("watchlist-status"),
   },
 
   showSignedOut() {
@@ -116,7 +120,7 @@ const Render = {
     }
   },
 
-  detail(portfolio, onSelectSymbol) {
+  detail(portfolio, onSelectTicker) {
     this.els.emptyPanel.hidden = true;
     this.els.detailPanel.hidden = false;
 
@@ -130,7 +134,7 @@ const Render = {
     for (const holding of portfolio.holdings) {
       const row = document.createElement("tr");
       const cells = [
-        holding.symbol,
+        holding.ticker,
         holding.quantity,
         formatMoney(holding.avg_cost),
         holding.current_price != null ? formatMoney(holding.current_price) : "—",
@@ -141,13 +145,13 @@ const Render = {
         td.textContent = value;
         row.appendChild(td);
       }
-      row.addEventListener("click", () => onSelectSymbol(holding.symbol));
+      row.addEventListener("click", () => onSelectTicker(holding.ticker));
       this.els.holdingsBody.appendChild(row);
     }
   },
 
-  priceChart(symbol, history, days, comparePoints = [], onPointClick = () => {}) {
-    this.els.chartTitle.textContent = symbol;
+  priceChart(ticker, history, days, comparePoints = [], onPointClick = () => {}) {
+    this.els.chartTitle.textContent = ticker;
     const ns = "http://www.w3.org/2000/svg";
     const svg = this.els.priceChart;
     while (svg.firstChild) svg.removeChild(svg.firstChild);
@@ -547,16 +551,16 @@ const Render = {
     });
   },
 
-  symbolDropdown(query, onSelect) {
-    const dropdown = this.els.symbolDropdown;
+  tickerDropdown(query, onSelect) {
+    const dropdown = this.els.tickerDropdown;
     dropdown.textContent = "";
     const q = query.trim().toLowerCase();
 
     let anyMatch = false;
-    for (const group of SYMBOL_CATALOG) {
+    for (const group of TICKER_CATALOG) {
       const matches = q
-        ? group.symbols.filter((s) => s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q))
-        : group.symbols;
+        ? group.tickers.filter((s) => s.ticker.toLowerCase().includes(q) || s.name.toLowerCase().includes(q))
+        : group.tickers;
       if (q && matches.length === 0) continue;
 
       anyMatch = anyMatch || matches.length > 0;
@@ -568,7 +572,7 @@ const Render = {
       header.addEventListener("click", (event) => {
         event.stopPropagation();
         group.expanded = !group.expanded;
-        this.symbolDropdown(this.els.symbolInput.value, onSelect);
+        this.tickerDropdown(this.els.tickerInput.value, onSelect);
       });
       dropdown.appendChild(header);
 
@@ -577,17 +581,17 @@ const Render = {
       for (const item of matches) {
         const row = document.createElement("div");
         row.className = "combobox-item";
-        const symbolSpan = document.createElement("span");
-        symbolSpan.className = "item-symbol";
-        symbolSpan.textContent = item.symbol;
+        const tickerSpan = document.createElement("span");
+        tickerSpan.className = "item-ticker";
+        tickerSpan.textContent = item.ticker;
         const nameSpan = document.createElement("span");
         nameSpan.className = "item-name";
         nameSpan.textContent = item.name;
-        row.appendChild(symbolSpan);
+        row.appendChild(tickerSpan);
         row.appendChild(nameSpan);
         row.addEventListener("click", (event) => {
           event.stopPropagation();
-          onSelect(item.symbol);
+          onSelect(item.ticker);
         });
         dropdown.appendChild(row);
       }
@@ -603,8 +607,8 @@ const Render = {
     dropdown.hidden = false;
   },
 
-  hideSymbolDropdown() {
-    this.els.symbolDropdown.hidden = true;
+  hideTickerDropdown() {
+    this.els.tickerDropdown.hidden = true;
   },
 
   showEmptyPanel() {
@@ -616,6 +620,12 @@ const Render = {
     this.els.tradeStatus.textContent = message;
     this.els.tradeStatus.classList.toggle("status-error", Boolean(isError));
     this.els.tradeStatus.classList.toggle("status-success", !isError && Boolean(message));
+  },
+
+  watchlistStatus(message, isError) {
+    this.els.watchlistStatus.textContent = message;
+    this.els.watchlistStatus.classList.toggle("status-error", Boolean(isError));
+    this.els.watchlistStatus.classList.toggle("status-success", !isError && Boolean(message));
   },
 
   createPortfolioStatus(message, isError) {
@@ -632,7 +642,7 @@ const Render = {
     this.els.trendsBody.textContent = "";
     for (const row of rows) {
       const tr = document.createElement("tr");
-      const cells = [row.symbol, formatMoney(row.close), formatMoney(row.ma_7d), formatMoney(row.ma_30d)];
+      const cells = [row.ticker, formatMoney(row.close), formatMoney(row.ma_7d), formatMoney(row.ma_30d)];
       for (const value of cells) {
         const td = document.createElement("td");
         td.textContent = value;
@@ -650,6 +660,51 @@ const Render = {
       this.els.trendsBody.appendChild(tr);
     }
     this.els.trendsTable.hidden = rows.length === 0;
+  },
+
+  watchlist(items, onDelete) {
+    this.els.watchlistBody.textContent = "";
+    for (const item of items) {
+      const tr = document.createElement("tr");
+
+      const tickerTd = document.createElement("td");
+      tickerTd.textContent = item.ticker;
+      tr.appendChild(tickerTd);
+
+      const priceTd = document.createElement("td");
+      priceTd.textContent = item.current_price != null ? formatMoney(item.current_price) : "—";
+      tr.appendChild(priceTd);
+
+      const alertTd = document.createElement("td");
+      alertTd.textContent = item.alert_direction
+        ? `${item.alert_direction === "above" ? "Above" : "Below"} ${formatMoney(item.target_price)}`
+        : "—";
+      tr.appendChild(alertTd);
+
+      const statusTd = document.createElement("td");
+      if (item.triggered_at) {
+        const badge = document.createElement("span");
+        badge.className = "trend-badge down";
+        badge.textContent = "🔔 Triggered";
+        statusTd.appendChild(badge);
+      } else {
+        statusTd.textContent = "—";
+      }
+      tr.appendChild(statusTd);
+
+      const actionTd = document.createElement("td");
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "portfolio-list-delete";
+      removeBtn.textContent = "Remove";
+      removeBtn.addEventListener("click", () => onDelete(item.id));
+      actionTd.appendChild(removeBtn);
+      tr.appendChild(actionTd);
+
+      this.els.watchlistBody.appendChild(tr);
+    }
+    this.els.watchlistTable.hidden = items.length === 0;
+    this.els.watchlistEmpty.hidden = items.length > 0;
   },
 
   trendsChart(rows) {
@@ -673,9 +728,9 @@ const Render = {
     const barWidth = Math.min(28, groupWidth / 3);
 
     rows.forEach((row, i) => {
-      // Each symbol is scaled against its own max (close vs 30D MA) — prices span wildly
+      // Each ticker is scaled against its own max (close vs 30D MA) — prices span wildly
       // different scales (e.g. BTC-USD vs AAPL), so a shared axis would flatten the smaller
-      // ones. This shows "close relative to its own 30-day trend" per symbol instead.
+      // ones. This shows "close relative to its own 30-day trend" per ticker instead.
       const localMax = Math.max(row.close, row.ma_30d) || 1;
       const closeHeight = (row.close / localMax) * plotHeight;
       const maHeight = (row.ma_30d / localMax) * plotHeight;
@@ -706,7 +761,7 @@ const Render = {
       label.setAttribute("x", groupCenter.toFixed(1));
       label.setAttribute("y", height - 16);
       label.setAttribute("text-anchor", "middle");
-      label.textContent = row.symbol;
+      label.textContent = row.ticker;
       svg.appendChild(label);
     });
 
@@ -714,7 +769,7 @@ const Render = {
     legend.setAttribute("class", "chart-axis-label");
     legend.setAttribute("x", margin.left);
     legend.setAttribute("y", 12);
-    legend.textContent = "Solid = close · Faded = 30D MA (each symbol scaled to itself)";
+    legend.textContent = "Solid = close · Faded = 30D MA (each ticker scaled to itself)";
     svg.appendChild(legend);
   },
 

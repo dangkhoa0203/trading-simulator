@@ -54,7 +54,7 @@ def get_portfolio(portfolio_id):
     for holding in portfolio.holdings:
         entry = holding.to_dict()
         try:
-            price, stale = get_price(holding.symbol)
+            price, stale = get_price(holding.ticker)
             entry["current_price"] = price
             entry["price_stale"] = stale
             entry["market_value"] = price * float(holding.quantity)
@@ -114,13 +114,13 @@ def upsert_holding(portfolio_id):
         return jsonify(error="not found"), 404
 
     data = request.get_json(silent=True) or {}
-    symbol = (data.get("symbol") or "").strip().upper()
-    if not symbol:
-        return jsonify(error="symbol is required"), 400
+    ticker = (data.get("ticker") or "").strip().upper()
+    if not ticker:
+        return jsonify(error="ticker is required"), 400
 
-    holding = Holding.query.filter_by(portfolio_id=portfolio.id, symbol=symbol).first()
+    holding = Holding.query.filter_by(portfolio_id=portfolio.id, ticker=ticker).first()
     if holding is None:
-        holding = Holding(portfolio_id=portfolio.id, symbol=symbol)
+        holding = Holding(portfolio_id=portfolio.id, ticker=ticker)
         db.session.add(holding)
 
     holding.quantity = data.get("quantity", holding.quantity)

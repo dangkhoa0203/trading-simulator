@@ -128,7 +128,7 @@ def build_pdf(data):
         for h in holdings:
             rows.append(
                 [
-                    h["symbol"],
+                    h["ticker"],
                     str(h["quantity"]),
                     _money(h["avg_cost"]),
                     _money(h["current_price"]) if h.get("current_price") is not None else "—",
@@ -153,7 +153,7 @@ def build_pdf(data):
             rows.append(
                 [
                     t.get("executed_at", "")[:10],
-                    t["symbol"],
+                    t["ticker"],
                     t["side"],
                     str(t["quantity"]),
                     _money(t["price"]),

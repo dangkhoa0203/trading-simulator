@@ -6,15 +6,15 @@ from market import get_history
 bp = Blueprint("market_routes", __name__, url_prefix="/api/market")
 
 
-@bp.get("/history/<symbol>")
+@bp.get("/history/<ticker>")
 @login_required
-def history(symbol):
+def history(ticker):
     days = request.args.get("days", default=30, type=int) or 30
     days = max(7, min(days, 730))
 
     try:
-        data = get_history(symbol.upper(), days=days)
+        data = get_history(ticker.upper(), days=days)
     except Exception as exc:
         return jsonify(error=str(exc)), 502
 
-    return jsonify(symbol=symbol.upper(), history=data)
+    return jsonify(ticker=ticker.upper(), history=data)

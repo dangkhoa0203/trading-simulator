@@ -10,14 +10,14 @@ def _trade(client, auth_headers, portfolio_id, **kwargs):
 
 
 def test_buy_creates_a_new_holding(client, auth_headers, portfolio, monkeypatch):
-    monkeypatch.setattr(trades, "get_price", lambda symbol: (150.0, False))
+    monkeypatch.setattr(trades, "get_price", lambda ticker: (150.0, False))
 
-    res = _trade(client, auth_headers, portfolio.id, symbol="AAPL", side="BUY", quantity=10)
+    res = _trade(client, auth_headers, portfolio.id, ticker="AAPL", side="BUY", quantity=10)
 
     assert res.status_code == 201
     body = res.get_json()
     assert body["cash_balance"] == 100000.0 - 1500.0
-    assert body["transaction"]["symbol"] == "AAPL"
+    assert body["transaction"]["ticker"] == "AAPL"
     assert body["transaction"]["side"] == "BUY"
     assert body["transaction"]["quantity"] == 10.0
     assert body["transaction"]["price"] == 150.0
@@ -25,23 +25,23 @@ def test_buy_creates_a_new_holding(client, auth_headers, portfolio, monkeypatch)
 
 def test_buy_more_updates_weighted_average_cost(client, auth_headers, portfolio, monkeypatch):
     # Buy 10 @ 100, then 10 @ 200 — average cost should land exactly between them.
-    monkeypatch.setattr(trades, "get_price", lambda symbol: (100.0, False))
-    _trade(client, auth_headers, portfolio.id, symbol="AAPL", side="BUY", quantity=10)
+    monkeypatch.setattr(trades, "get_price", lambda ticker: (100.0, False))
+    _trade(client, auth_headers, portfolio.id, ticker="AAPL", side="BUY", quantity=10)
 
-    monkeypatch.setattr(trades, "get_price", lambda symbol: (200.0, False))
-    res = _trade(client, auth_headers, portfolio.id, symbol="AAPL", side="BUY", quantity=10)
+    monkeypatch.setattr(trades, "get_price", lambda ticker: (200.0, False))
+    res = _trade(client, auth_headers, portfolio.id, ticker="AAPL", side="BUY", quantity=10)
 
     from models import Holding
-    holding = Holding.query.filter_by(portfolio_id=portfolio.id, symbol="AAPL").first()
+    holding = Holding.query.filter_by(portfolio_id=portfolio.id, ticker="AAPL").first()
     assert res.status_code == 201
     assert float(holding.quantity) == 20.0
     assert float(holding.avg_cost) == 150.0
 
 
 def test_buy_rejected_when_cash_insufficient(client, auth_headers, portfolio, monkeypatch):
-    monkeypatch.setattr(trades, "get_price", lambda symbol: (1_000_000.0, False))
+    monkeypatch.setattr(trades, "get_price", lambda ticker: (1_000_000.0, False))
 
-    res = _trade(client, auth_headers, portfolio.id, symbol="AAPL", side="BUY", quantity=1)
+    res = _trade(client, auth_headers, portfolio.id, ticker="AAPL", side="BUY", quantity=1)
 
     assert res.status_code == 400
     assert "insufficient cash" in res.get_json()["error"]
@@ -51,11 +51,11 @@ def test_buy_rejected_when_cash_insufficient(client, auth_headers, portfolio, mo
 
 
 def test_sell_reduces_holding_and_refunds_cash(client, auth_headers, portfolio, monkeypatch):
-    monkeypatch.setattr(trades, "get_price", lambda symbol: (100.0, False))
-    _trade(client, auth_headers, portfolio.id, symbol="AAPL", side="BUY", quantity=10)
+    monkeypatch.setattr(trades, "get_price", lambda ticker: (100.0, False))
+    _trade(client, auth_headers, portfolio.id, ticker="AAPL", side="BUY", quantity=10)
 
-    monkeypatch.setattr(trades, "get_price", lambda symbol: (120.0, False))
-    res = _trade(client, auth_headers, portfolio.id, symbol="AAPL", side="SELL", quantity=4)
+    monkeypatch.setattr(trades, "get_price", lambda ticker: (120.0, False))
+    res = _trade(client, auth_headers, portfolio.id, ticker="AAPL", side="SELL", quantity=4)
 
     assert res.status_code == 201
     body = res.get_json()
@@ -63,63 +63,63 @@ def test_sell_reduces_holding_and_refunds_cash(client, auth_headers, portfolio, 
     assert body["cash_balance"] == 100000.0 - 1000.0 + 480.0
 
     from models import Holding
-    holding = Holding.query.filter_by(portfolio_id=portfolio.id, symbol="AAPL").first()
+    holding = Holding.query.filter_by(portfolio_id=portfolio.id, ticker="AAPL").first()
     assert float(holding.quantity) == 6.0
 
 
 def test_sell_all_of_a_holding_removes_the_row(client, auth_headers, portfolio, monkeypatch):
-    monkeypatch.setattr(trades, "get_price", lambda symbol: (100.0, False))
-    _trade(client, auth_headers, portfolio.id, symbol="AAPL", side="BUY", quantity=5)
-    res = _trade(client, auth_headers, portfolio.id, symbol="AAPL", side="SELL", quantity=5)
+    monkeypatch.setattr(trades, "get_price", lambda ticker: (100.0, False))
+    _trade(client, auth_headers, portfolio.id, ticker="AAPL", side="BUY", quantity=5)
+    res = _trade(client, auth_headers, portfolio.id, ticker="AAPL", side="SELL", quantity=5)
 
     assert res.status_code == 201
     from models import Holding
-    assert Holding.query.filter_by(portfolio_id=portfolio.id, symbol="AAPL").first() is None
+    assert Holding.query.filter_by(portfolio_id=portfolio.id, ticker="AAPL").first() is None
 
 
 def test_sell_rejected_without_a_holding(client, auth_headers, portfolio, monkeypatch):
-    monkeypatch.setattr(trades, "get_price", lambda symbol: (100.0, False))
+    monkeypatch.setattr(trades, "get_price", lambda ticker: (100.0, False))
 
-    res = _trade(client, auth_headers, portfolio.id, symbol="AAPL", side="SELL", quantity=1)
+    res = _trade(client, auth_headers, portfolio.id, ticker="AAPL", side="SELL", quantity=1)
 
     assert res.status_code == 400
     assert "insufficient holding" in res.get_json()["error"]
 
 
 def test_sell_rejected_for_more_than_is_held(client, auth_headers, portfolio, monkeypatch):
-    monkeypatch.setattr(trades, "get_price", lambda symbol: (100.0, False))
-    _trade(client, auth_headers, portfolio.id, symbol="AAPL", side="BUY", quantity=5)
+    monkeypatch.setattr(trades, "get_price", lambda ticker: (100.0, False))
+    _trade(client, auth_headers, portfolio.id, ticker="AAPL", side="BUY", quantity=5)
 
-    res = _trade(client, auth_headers, portfolio.id, symbol="AAPL", side="SELL", quantity=6)
+    res = _trade(client, auth_headers, portfolio.id, ticker="AAPL", side="SELL", quantity=6)
 
     assert res.status_code == 400
     assert "insufficient holding" in res.get_json()["error"]
 
 
 def test_rejects_missing_symbol_or_bad_side(client, auth_headers, portfolio):
-    res = _trade(client, auth_headers, portfolio.id, symbol="", side="BUY", quantity=1)
+    res = _trade(client, auth_headers, portfolio.id, ticker="", side="BUY", quantity=1)
     assert res.status_code == 400
 
-    res = _trade(client, auth_headers, portfolio.id, symbol="AAPL", side="HOLD", quantity=1)
+    res = _trade(client, auth_headers, portfolio.id, ticker="AAPL", side="HOLD", quantity=1)
     assert res.status_code == 400
 
 
 def test_rejects_non_positive_quantity(client, auth_headers, portfolio):
-    res = _trade(client, auth_headers, portfolio.id, symbol="AAPL", side="BUY", quantity=0)
+    res = _trade(client, auth_headers, portfolio.id, ticker="AAPL", side="BUY", quantity=0)
     assert res.status_code == 400
 
-    res = _trade(client, auth_headers, portfolio.id, symbol="AAPL", side="BUY", quantity=-5)
+    res = _trade(client, auth_headers, portfolio.id, ticker="AAPL", side="BUY", quantity=-5)
     assert res.status_code == 400
 
 
 def test_backtest_trade_uses_historical_price_not_a_client_supplied_one(client, auth_headers, portfolio, monkeypatch):
     # The whole point of backtesting is the price is looked up server-side for the given
     # date — a malicious client passing its own "price" field must have no effect.
-    monkeypatch.setattr(trades, "get_price_at_date", lambda symbol, date, days=30: 42.0)
+    monkeypatch.setattr(trades, "get_price_at_date", lambda ticker, date, days=30: 42.0)
 
     res = _trade(
         client, auth_headers, portfolio.id,
-        symbol="AAPL", side="BUY", quantity=1, date="2024-01-15", price=1.0,
+        ticker="AAPL", side="BUY", quantity=1, date="2024-01-15", price=1.0,
     )
 
     assert res.status_code == 201
@@ -127,7 +127,7 @@ def test_backtest_trade_uses_historical_price_not_a_client_supplied_one(client, 
 
 
 def test_trade_requires_authentication(client, portfolio):
-    res = client.post(f"/api/portfolios/{portfolio.id}/trades", json={"symbol": "AAPL", "side": "BUY", "quantity": 1})
+    res = client.post(f"/api/portfolios/{portfolio.id}/trades", json={"ticker": "AAPL", "side": "BUY", "quantity": 1})
     assert res.status_code == 401
 
 
@@ -144,7 +144,7 @@ def test_cannot_trade_another_users_portfolio(client, portfolio, app):
 
     res = client.post(
         f"/api/portfolios/{portfolio.id}/trades",
-        json={"symbol": "AAPL", "side": "BUY", "quantity": 1},
+        json={"ticker": "AAPL", "side": "BUY", "quantity": 1},
         headers={"Authorization": f"Bearer {other_token}"},
     )
     assert res.status_code == 404

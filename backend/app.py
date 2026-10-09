@@ -11,6 +11,7 @@ from portfolios import bp as portfolios_bp
 from reports import bp as reports_bp
 from statements import bp as statements_bp
 from trades import bp as trades_bp
+from watchlist import bp as watchlist_bp
 
 
 def create_app():
@@ -42,6 +43,7 @@ def create_app():
     app.register_blueprint(reports_bp)
     app.register_blueprint(alerts_bp)
     app.register_blueprint(statements_bp)
+    app.register_blueprint(watchlist_bp)
 
     @app.get("/health")
     def health():

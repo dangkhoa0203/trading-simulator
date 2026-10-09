@@ -14,22 +14,22 @@ bp = Blueprint("reports", __name__, url_prefix="/api/reports")
 @bp.get("/latest")
 @login_required
 def latest():
-    symbols = [row[0] for row in MarketTrend.query.with_entities(MarketTrend.symbol).distinct()]
+    tickers = [row[0] for row in MarketTrend.query.with_entities(MarketTrend.ticker).distinct()]
     rows = []
-    for symbol in symbols:
+    for ticker in tickers:
         latest_row = (
-            MarketTrend.query.filter_by(symbol=symbol).order_by(MarketTrend.date.desc()).first()
+            MarketTrend.query.filter_by(ticker=ticker).order_by(MarketTrend.date.desc()).first()
         )
         if latest_row is not None:
             rows.append(latest_row.to_dict())
-    rows.sort(key=lambda r: r["symbol"])
+    rows.sort(key=lambda r: r["ticker"])
     return jsonify(rows)
 
 
-@bp.get("/series/<symbol>")
+@bp.get("/series/<ticker>")
 @login_required
-def series(symbol):
+def series(ticker):
     rows = (
-        MarketTrend.query.filter_by(symbol=symbol.upper()).order_by(MarketTrend.date.asc()).all()
+        MarketTrend.query.filter_by(ticker=ticker.upper()).order_by(MarketTrend.date.asc()).all()
     )
-    return jsonify(symbol=symbol.upper(), series=[r.to_dict() for r in rows])
+    return jsonify(ticker=ticker.upper(), series=[r.to_dict() for r in rows])

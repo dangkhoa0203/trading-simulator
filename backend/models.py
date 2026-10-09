@@ -44,17 +44,17 @@ class Holding(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     portfolio_id = db.Column(db.Integer, db.ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False)
-    symbol = db.Column(db.String(16), nullable=False)
+    ticker = db.Column(db.String(16), nullable=False)
     quantity = db.Column(db.Numeric(18, 6), nullable=False, default=0)
     avg_cost = db.Column(db.Numeric(18, 6), nullable=False, default=0)
     updated_at = db.Column(db.DateTime(timezone=True), server_default=db.func.now(), onupdate=db.func.now())
 
-    __table_args__ = (db.UniqueConstraint("portfolio_id", "symbol"),)
+    __table_args__ = (db.UniqueConstraint("portfolio_id", "ticker"),)
 
     def to_dict(self):
         return {
             "id": self.id,
-            "symbol": self.symbol,
+            "ticker": self.ticker,
             "quantity": float(self.quantity),
             "avg_cost": float(self.avg_cost),
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -66,7 +66,7 @@ class Transaction(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     portfolio_id = db.Column(db.Integer, db.ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False)
-    symbol = db.Column(db.String(16), nullable=False)
+    ticker = db.Column(db.String(16), nullable=False)
     side = db.Column(db.String(4), nullable=False)
     quantity = db.Column(db.Numeric(18, 6), nullable=False)
     price = db.Column(db.Numeric(18, 6), nullable=False)
@@ -77,7 +77,7 @@ class Transaction(db.Model):
     def to_dict(self):
         return {
             "id": self.id,
-            "symbol": self.symbol,
+            "ticker": self.ticker,
             "side": self.side,
             "quantity": float(self.quantity),
             "price": float(self.price),
@@ -86,30 +86,61 @@ class Transaction(db.Model):
 
 
 class MarketTrend(db.Model):
-    """Daily close + moving averages per symbol, computed by compute_trends.py on a
+    """Daily close + moving averages per ticker, computed by compute_trends.py on a
     schedule (was an EMR/Spark job writing to S3; folded into a plain script writing
     straight into Postgres once EMR was no longer available)."""
 
     __tablename__ = "market_trends"
 
     id = db.Column(db.Integer, primary_key=True)
-    symbol = db.Column(db.String(16), nullable=False)
+    ticker = db.Column(db.String(16), nullable=False)
     date = db.Column(db.Date, nullable=False)
     close = db.Column(db.Numeric(18, 6), nullable=False)
     ma_7d = db.Column(db.Numeric(18, 6))
     ma_30d = db.Column(db.Numeric(18, 6))
     trend = db.Column(db.String(4))
 
-    __table_args__ = (db.UniqueConstraint("symbol", "date"),)
+    __table_args__ = (db.UniqueConstraint("ticker", "date"),)
 
     def to_dict(self):
         return {
-            "symbol": self.symbol,
+            "ticker": self.ticker,
             "date": self.date.isoformat() if self.date else None,
             "close": float(self.close),
             "ma_7d": float(self.ma_7d) if self.ma_7d is not None else None,
             "ma_30d": float(self.ma_30d) if self.ma_30d is not None else None,
             "trend": self.trend,
+        }
+
+
+class WatchlistItem(db.Model):
+    """A ticker the user wants to track without necessarily holding it, with an optional
+    price-target alert (direction + target_price). Checked by the same scheduled job as
+    portfolio value alerts (alerts.py's /internal/check-alerts)."""
+
+    __tablename__ = "watchlist_items"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    ticker = db.Column(db.String(16), nullable=False)
+    alert_direction = db.Column(db.String(5))  # 'above' | 'below' | NULL (no alert set)
+    target_price = db.Column(db.Numeric(18, 6))
+    triggered_at = db.Column(db.DateTime(timezone=True))
+    created_at = db.Column(db.DateTime(timezone=True), server_default=db.func.now())
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "ticker"),
+        CheckConstraint("alert_direction IN ('above', 'below')"),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "ticker": self.ticker,
+            "alert_direction": self.alert_direction,
+            "target_price": float(self.target_price) if self.target_price is not None else None,
+            "triggered_at": self.triggered_at.isoformat() if self.triggered_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 

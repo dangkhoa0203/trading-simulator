@@ -26,13 +26,13 @@ def create_trade(portfolio_id):
         return jsonify(error="not found"), 404
 
     data = request.get_json(silent=True) or {}
-    symbol = (data.get("symbol") or "").strip().upper()
+    ticker = (data.get("ticker") or "").strip().upper()
     side = (data.get("side") or "").strip().upper()
     raw_quantity = data.get("quantity")
     trade_date = data.get("date")  # optional: backtest at a historical price instead of live
 
-    if not symbol or side not in ("BUY", "SELL"):
-        return jsonify(error="symbol and side (BUY/SELL) are required"), 400
+    if not ticker or side not in ("BUY", "SELL"):
+        return jsonify(error="ticker and side (BUY/SELL) are required"), 400
     if not isinstance(raw_quantity, (int, float)) or raw_quantity <= 0:
         return jsonify(error="quantity must be a positive number"), 400
 
@@ -41,10 +41,10 @@ def create_trade(portfolio_id):
     try:
         if trade_date:
             days = int(data.get("days") or 365)
-            price = get_price_at_date(symbol, trade_date, days=days)
+            price = get_price_at_date(ticker, trade_date, days=days)
             executed_at = datetime.strptime(trade_date[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
         else:
-            price, price_stale = get_price(symbol)
+            price, price_stale = get_price(ticker)
     except RuntimeError as exc:
         return jsonify(error=str(exc)), 502
 
@@ -52,14 +52,14 @@ def create_trade(portfolio_id):
     price = Decimal(str(price))
     cost = quantity * price
 
-    holding = Holding.query.filter_by(portfolio_id=portfolio.id, symbol=symbol).first()
+    holding = Holding.query.filter_by(portfolio_id=portfolio.id, ticker=ticker).first()
 
     if side == "BUY":
         if cost > portfolio.cash_balance:
             return jsonify(error="insufficient cash balance"), 400
         portfolio.cash_balance -= cost
         if holding is None:
-            holding = Holding(portfolio_id=portfolio.id, symbol=symbol, quantity=quantity, avg_cost=price)
+            holding = Holding(portfolio_id=portfolio.id, ticker=ticker, quantity=quantity, avg_cost=price)
             db.session.add(holding)
         else:
             total_cost = holding.quantity * holding.avg_cost + cost
@@ -73,7 +73,7 @@ def create_trade(portfolio_id):
         if holding.quantity == 0:
             db.session.delete(holding)
 
-    transaction = Transaction(portfolio_id=portfolio.id, symbol=symbol, side=side, quantity=quantity, price=price)
+    transaction = Transaction(portfolio_id=portfolio.id, ticker=ticker, side=side, quantity=quantity, price=price)
     if executed_at is not None:
         transaction.executed_at = executed_at
     db.session.add(transaction)

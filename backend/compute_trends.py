@@ -4,11 +4,11 @@ trend classification, writing straight into the market_trends table.
 Was a two-stage pipeline on AWS: a script landed raw JSON in S3, an S3 event triggered a
 Lambda that launched an EMR/Spark cluster to compute this. Folded into one script run on a
 schedule (see .github/workflows/compute-trends.yml) since there's no cluster to launch
-anymore — at this data volume (a handful of symbols, ~90 daily rows each) pandas does the
+anymore — at this data volume (a handful of tickers, ~90 daily rows each) pandas does the
 same rolling-window computation Spark did, just without the orchestration.
 
 Usage:
-    DATABASE_URL=... MARKET_API_KEY=... python compute_trends.py [SYMBOL ...]
+    DATABASE_URL=... MARKET_API_KEY=... python compute_trends.py [TICKER ...]
 """
 
 import os
@@ -18,18 +18,18 @@ import pandas as pd
 import requests
 from sqlalchemy import create_engine, text
 
-DEFAULT_SYMBOLS = ["AAPL", "MSFT", "BTC-USD"]
+DEFAULT_TICKERS = ["AAPL", "MSFT", "BTC-USD"]
 
 
-def _twelvedata_symbol(symbol):
-    return symbol.replace("-", "/")
+def _twelvedata_symbol(ticker):
+    return ticker.replace("-", "/")
 
 
-def fetch_history(symbol, api_key, outputsize=90):
+def fetch_history(ticker, api_key, outputsize=90):
     response = requests.get(
         "https://api.twelvedata.com/time_series",
         params={
-            "symbol": _twelvedata_symbol(symbol),
+            "symbol": _twelvedata_symbol(ticker),
             "interval": "1day",
             "outputsize": outputsize,
             "apikey": api_key,
@@ -43,7 +43,7 @@ def fetch_history(symbol, api_key, outputsize=90):
     return data["values"]
 
 
-def compute_moving_averages(symbol, values):
+def compute_moving_averages(ticker, values):
     df = pd.DataFrame(values)
     df["date"] = pd.to_datetime(df["datetime"]).dt.date
     df["close"] = df["close"].astype(float)
@@ -52,9 +52,9 @@ def compute_moving_averages(symbol, values):
     df["ma_7d"] = df["close"].rolling(window=7, min_periods=1).mean()
     df["ma_30d"] = df["close"].rolling(window=30, min_periods=1).mean()
     df["trend"] = df.apply(lambda r: "up" if r["close"] >= r["ma_30d"] else "down", axis=1)
-    df["symbol"] = symbol
+    df["ticker"] = ticker
 
-    return df[["symbol", "date", "close", "ma_7d", "ma_30d", "trend"]]
+    return df[["ticker", "date", "close", "ma_7d", "ma_30d", "trend"]]
 
 
 def upsert(engine, df):
@@ -63,15 +63,15 @@ def upsert(engine, df):
             conn.execute(
                 text(
                     """
-                    INSERT INTO market_trends (symbol, date, close, ma_7d, ma_30d, trend)
-                    VALUES (:symbol, :date, :close, :ma_7d, :ma_30d, :trend)
-                    ON CONFLICT (symbol, date) DO UPDATE SET
+                    INSERT INTO market_trends (ticker, date, close, ma_7d, ma_30d, trend)
+                    VALUES (:ticker, :date, :close, :ma_7d, :ma_30d, :trend)
+                    ON CONFLICT (ticker, date) DO UPDATE SET
                         close = EXCLUDED.close, ma_7d = EXCLUDED.ma_7d,
                         ma_30d = EXCLUDED.ma_30d, trend = EXCLUDED.trend
                     """
                 ),
                 {
-                    "symbol": row.symbol,
+                    "ticker": row.ticker,
                     "date": row.date,
                     "close": row.close,
                     "ma_7d": row.ma_7d,
@@ -88,18 +88,18 @@ def main():
         print("DATABASE_URL and MARKET_API_KEY must be set")
         sys.exit(1)
 
-    symbols = sys.argv[1:] or DEFAULT_SYMBOLS
+    tickers = sys.argv[1:] or DEFAULT_TICKERS
     engine = create_engine(database_url)
 
-    for symbol in symbols:
+    for ticker in tickers:
         try:
-            values = fetch_history(symbol, api_key)
+            values = fetch_history(ticker, api_key)
         except Exception as exc:
-            print(f"skip {symbol}: {exc}")
+            print(f"skip {ticker}: {exc}")
             continue
-        df = compute_moving_averages(symbol, values)
+        df = compute_moving_averages(ticker, values)
         upsert(engine, df)
-        print(f"wrote {len(df)} rows for {symbol}")
+        print(f"wrote {len(df)} rows for {ticker}")
 
 
 if __name__ == "__main__":

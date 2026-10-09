@@ -2,7 +2,7 @@ const state = {
   portfolios: [],
   selectedPortfolioId: null,
   tradeSide: "BUY",
-  chartSymbol: null,
+  chartTicker: null,
   chartDays: 30,
   chartHistory: [],
   comparePoints: [],
@@ -51,7 +51,7 @@ async function selectPortfolio(id) {
   const portfolio = await refreshPortfolioDetail(id);
   Render.tradeStatus("");
 
-  if (portfolio.holdings.length > 0) showChart(portfolio.holdings[0].symbol, state.chartDays);
+  if (portfolio.holdings.length > 0) showChart(portfolio.holdings[0].ticker, state.chartDays);
   loadAlerts(id);
 }
 
@@ -84,16 +84,16 @@ async function dismissAlert(portfolioId, alertId) {
   }
 }
 
-async function showChart(symbol, days = state.chartDays) {
-  state.chartSymbol = symbol;
+async function showChart(ticker, days = state.chartDays) {
+  state.chartTicker = ticker;
   state.chartDays = days;
   state.comparePoints = [];
   state.backtestTrade = null;
   Render.rangeSelector(days);
-  Render.els.symbolInput.value = symbol;
+  Render.els.tickerInput.value = ticker;
 
   try {
-    const res = await Api.getHistory(symbol, days);
+    const res = await Api.getHistory(ticker, days);
     const body = await res.json();
     if (res.ok) {
       state.chartHistory = body.history;
@@ -105,7 +105,7 @@ async function showChart(symbol, days = state.chartDays) {
 }
 
 function renderChart() {
-  Render.priceChart(state.chartSymbol, state.chartHistory, state.chartDays, state.comparePoints, handlePointClick);
+  Render.priceChart(state.chartTicker, state.chartHistory, state.chartDays, state.comparePoints, handlePointClick);
   Render.comparisonPanel(state.comparePoints, state.chartHistory, state.backtestTrade, handleBacktestTrade);
 }
 
@@ -125,7 +125,7 @@ async function handleBacktestTrade(side, quantity) {
 
   const point = state.comparePoints[0];
   try {
-    const res = await Api.submitTrade(state.selectedPortfolioId, state.chartSymbol, side, quantity, point.date, state.chartDays);
+    const res = await Api.submitTrade(state.selectedPortfolioId, state.chartTicker, side, quantity, point.date, state.chartDays);
     const body = await res.json();
     if (res.ok) {
       state.backtestTrade = { index: point.index, side, quantity, price: body.transaction.price };
@@ -162,30 +162,30 @@ document.getElementById("chart-compare-clear")?.addEventListener("click", () => 
 
 document.getElementById("range-selector")?.addEventListener("click", (event) => {
   const button = event.target.closest(".range-option");
-  if (!button || state.chartSymbol === null) return;
-  showChart(state.chartSymbol, Number(button.dataset.days));
+  if (!button || state.chartTicker === null) return;
+  showChart(state.chartTicker, Number(button.dataset.days));
 });
 
-const symbolInputEl = document.getElementById("chart-symbol-input");
-const symbolComboboxEl = document.getElementById("symbol-combobox");
+const tickerInputEl = document.getElementById("chart-ticker-input");
+const tickerComboboxEl = document.getElementById("ticker-combobox");
 
-symbolInputEl?.addEventListener("focus", () => Render.symbolDropdown(symbolInputEl.value, chooseSymbol));
-symbolInputEl?.addEventListener("input", () => Render.symbolDropdown(symbolInputEl.value, chooseSymbol));
+tickerInputEl?.addEventListener("focus", () => Render.tickerDropdown(tickerInputEl.value, chooseTicker));
+tickerInputEl?.addEventListener("input", () => Render.tickerDropdown(tickerInputEl.value, chooseTicker));
 
 document.addEventListener("click", (event) => {
-  if (symbolComboboxEl && !symbolComboboxEl.contains(event.target)) Render.hideSymbolDropdown();
+  if (tickerComboboxEl && !tickerComboboxEl.contains(event.target)) Render.hideTickerDropdown();
 });
 
-function chooseSymbol(symbol) {
-  symbolInputEl.value = symbol;
-  Render.hideSymbolDropdown();
-  showChart(symbol, state.chartDays);
+function chooseTicker(ticker) {
+  tickerInputEl.value = ticker;
+  Render.hideTickerDropdown();
+  showChart(ticker, state.chartDays);
 }
 
-document.getElementById("chart-symbol-form")?.addEventListener("submit", (event) => {
+document.getElementById("chart-ticker-form")?.addEventListener("submit", (event) => {
   event.preventDefault();
-  Render.hideSymbolDropdown();
-  if (symbolInputEl.value.trim()) showChart(symbolInputEl.value.trim(), state.chartDays);
+  Render.hideTickerDropdown();
+  if (tickerInputEl.value.trim()) showChart(tickerInputEl.value.trim(), state.chartDays);
 });
 
 document.getElementById("create-portfolio-form")?.addEventListener("submit", async (event) => {
@@ -298,18 +298,18 @@ document.getElementById("trade-form")?.addEventListener("submit", async (event) 
   event.preventDefault();
   if (state.selectedPortfolioId === null) return;
 
-  const symbol = document.getElementById("trade-symbol").value;
+  const ticker = document.getElementById("trade-ticker").value;
   const quantity = Number(document.getElementById("trade-quantity").value);
 
   Render.tradeStatus("Submitting...");
   try {
-    const res = await Api.submitTrade(state.selectedPortfolioId, symbol, state.tradeSide, quantity);
+    const res = await Api.submitTrade(state.selectedPortfolioId, ticker, state.tradeSide, quantity);
     const body = await res.json();
 
     if (res.ok) {
       const staleNote = body.price_stale ? " (stale price)" : "";
-      Render.tradeStatus(`${state.tradeSide} ${quantity} ${symbol} @ ${formatMoney(body.transaction.price)}${staleNote}`, false);
-      document.getElementById("trade-symbol").value = "";
+      Render.tradeStatus(`${state.tradeSide} ${quantity} ${ticker} @ ${formatMoney(body.transaction.price)}${staleNote}`, false);
+      document.getElementById("trade-ticker").value = "";
       document.getElementById("trade-quantity").value = "";
       selectPortfolio(state.selectedPortfolioId);
     } else {
@@ -336,11 +336,67 @@ async function init() {
     const portfolios = await refreshPortfolioList();
     if (portfolios.length > 0) selectPortfolio(portfolios[0].id);
     loadTrends();
+    loadWatchlist();
   } catch (err) {
     console.error("init failed:", err);
     Render.showSignedOut();
   }
 }
+
+async function loadWatchlist() {
+  try {
+    const res = await Api.getWatchlist();
+    const body = await res.json();
+    if (res.ok) {
+      Render.watchlist(body, deleteWatchlistItem);
+    }
+  } catch (err) {
+    Render.watchlistStatus("Watchlist unavailable — request failed.", true);
+  }
+}
+
+async function deleteWatchlistItem(id) {
+  try {
+    const res = await Api.deleteWatchlistItem(id);
+    if (res.ok) loadWatchlist();
+  } catch (err) {
+    Render.watchlistStatus(`Request failed: ${err.message}`, true);
+  }
+}
+
+const watchlistDirectionEl = document.getElementById("watchlist-direction");
+const watchlistTargetEl = document.getElementById("watchlist-target");
+watchlistDirectionEl?.addEventListener("change", () => {
+  const hasAlert = Boolean(watchlistDirectionEl.value);
+  watchlistTargetEl.disabled = !hasAlert;
+  watchlistTargetEl.required = hasAlert;
+  if (!hasAlert) watchlistTargetEl.value = "";
+});
+
+document.getElementById("watchlist-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const ticker = document.getElementById("watchlist-ticker").value;
+  const direction = watchlistDirectionEl.value || null;
+  const target = direction ? Number(watchlistTargetEl.value) : null;
+
+  Render.watchlistStatus("Adding...");
+  try {
+    const res = await Api.addWatchlistItem(ticker, direction, target);
+    const body = await res.json();
+    if (res.ok) {
+      Render.watchlistStatus("");
+      document.getElementById("watchlist-ticker").value = "";
+      watchlistDirectionEl.value = "";
+      watchlistTargetEl.value = "";
+      watchlistTargetEl.disabled = true;
+      loadWatchlist();
+    } else {
+      Render.watchlistStatus(`Error: ${body.error}`, true);
+    }
+  } catch (err) {
+    Render.watchlistStatus(`Request failed: ${err.message}`, true);
+  }
+});
 
 async function loadTrends() {
   try {
@@ -351,7 +407,7 @@ async function loadTrends() {
       Render.trendsTable(body);
       Render.trendsChart(body);
     } else if (res.ok) {
-      Render.trendsStatus("No EMR report yet — the batch job hasn't run.");
+      Render.trendsStatus("No trend report yet — the scheduled job hasn't run.");
     } else {
       Render.trendsStatus(`Trends unavailable: ${body.error || res.status}`);
     }

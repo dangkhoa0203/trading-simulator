@@ -5,7 +5,7 @@ import alerts
 
 
 def _set_price(monkeypatch, price):
-    monkeypatch.setattr(alerts, "get_price", lambda symbol: (price, False))
+    monkeypatch.setattr(alerts, "get_price", lambda ticker: (price, False))
 
 
 def test_check_alerts_requires_the_shared_secret(client):
@@ -33,7 +33,7 @@ def test_alert_created_when_portfolio_value_rises_past_threshold(client, portfol
     from models import Holding
 
     with app.app_context():
-        db.session.add(Holding(portfolio_id=portfolio.id, symbol="AAPL", quantity=100, avg_cost=10))
+        db.session.add(Holding(portfolio_id=portfolio.id, ticker="AAPL", quantity=100, avg_cost=10))
         portfolio.cash_balance = 90000.00  # spent 1000 buying the holding
         db.session.commit()
 
@@ -63,7 +63,7 @@ def test_alert_created_when_portfolio_value_drops_past_threshold(client, portfol
     from extensions import db
     from models import Holding
 
-    db.session.add(Holding(portfolio_id=portfolio.id, symbol="AAPL", quantity=1000, avg_cost=90))
+    db.session.add(Holding(portfolio_id=portfolio.id, ticker="AAPL", quantity=1000, avg_cost=90))
     portfolio.cash_balance = 10000.00  # cash+holding value well under baseline once priced at 1.0
     db.session.commit()
 
@@ -80,7 +80,7 @@ def test_no_duplicate_alert_while_one_is_still_unread(client, portfolio, monkeyp
     from extensions import db
     from models import Holding
 
-    db.session.add(Holding(portfolio_id=portfolio.id, symbol="AAPL", quantity=100, avg_cost=10))
+    db.session.add(Holding(portfolio_id=portfolio.id, ticker="AAPL", quantity=100, avg_cost=10))
     portfolio.cash_balance = 90000.00
     db.session.commit()
 
@@ -96,7 +96,7 @@ def test_mark_alert_read_allows_a_new_one_next_check(client, auth_headers, portf
     from extensions import db
     from models import Alert, Holding
 
-    db.session.add(Holding(portfolio_id=portfolio.id, symbol="AAPL", quantity=100, avg_cost=10))
+    db.session.add(Holding(portfolio_id=portfolio.id, ticker="AAPL", quantity=100, avg_cost=10))
     portfolio.cash_balance = 90000.00
     db.session.commit()
 

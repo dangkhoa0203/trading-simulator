@@ -103,6 +103,10 @@ const Api = {
     return this.request(`/api/portfolios/${portfolioId}/statement.pdf`);
   },
 
+  getTransactionsCsv(portfolioId) {
+    return this.request(`/api/portfolios/${portfolioId}/transactions.csv`);
+  },
+
   getWatchlist() {
     return this.request("/api/watchlist");
   },

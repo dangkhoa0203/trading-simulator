@@ -91,9 +91,13 @@
     <section id="detail-panel" class="detail-panel" hidden>
       <div class="detail-header">
         <h2 id="detail-name"></h2>
-        <button id="export-pdf-button" type="button" class="button button-secondary">Export PDF</button>
+        <div class="detail-header-actions">
+          <button id="export-pdf-button" type="button" class="button button-secondary">Export PDF</button>
+          <button id="export-csv-button" type="button" class="button button-secondary">Export CSV</button>
+        </div>
       </div>
       <p id="export-pdf-status" class="trade-status"></p>
+      <p id="export-csv-status" class="trade-status"></p>
 
       <div id="alerts-list" class="alerts-list" hidden></div>
 

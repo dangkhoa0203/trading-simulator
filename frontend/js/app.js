@@ -264,14 +264,9 @@ document.getElementById("register-form")?.addEventListener("submit", async (even
   }
 });
 
-document.getElementById("export-pdf-button")?.addEventListener("click", async () => {
-  if (state.selectedPortfolioId === null) return;
-  const statusEl = document.getElementById("export-pdf-status");
-  statusEl.textContent = "Generating PDF...";
-  statusEl.classList.remove("status-error");
-
+async function downloadFromResponse(fetchPromise, filename, statusEl) {
   try {
-    const res = await Api.getStatementPdf(state.selectedPortfolioId);
+    const res = await fetchPromise;
     if (!res.ok) {
       const body = await res.json();
       statusEl.textContent = `Error: ${body.error}`;
@@ -282,7 +277,7 @@ document.getElementById("export-pdf-button")?.addEventListener("click", async ()
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "statement.pdf";
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
     statusEl.textContent = "";
@@ -290,6 +285,22 @@ document.getElementById("export-pdf-button")?.addEventListener("click", async ()
     statusEl.textContent = `Request failed: ${err.message}`;
     statusEl.classList.add("status-error");
   }
+}
+
+document.getElementById("export-pdf-button")?.addEventListener("click", () => {
+  if (state.selectedPortfolioId === null) return;
+  const statusEl = document.getElementById("export-pdf-status");
+  statusEl.textContent = "Generating PDF...";
+  statusEl.classList.remove("status-error");
+  downloadFromResponse(Api.getStatementPdf(state.selectedPortfolioId), "statement.pdf", statusEl);
+});
+
+document.getElementById("export-csv-button")?.addEventListener("click", () => {
+  if (state.selectedPortfolioId === null) return;
+  const statusEl = document.getElementById("export-csv-status");
+  statusEl.textContent = "Generating CSV...";
+  statusEl.classList.remove("status-error");
+  downloadFromResponse(Api.getTransactionsCsv(state.selectedPortfolioId), "transactions.csv", statusEl);
 });
 
 document.getElementById("trade-side-toggle")?.addEventListener("click", (event) => {

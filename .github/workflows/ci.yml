@@ -1,10 +1,8 @@
 name: CI
 
+# Automatic runs on push/PR are disabled; trigger manually from the Actions tab if needed.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch: {}
 
 jobs:
   test:
